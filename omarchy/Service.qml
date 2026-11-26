@@ -44,11 +44,24 @@ Item {
     path: (Quickshell.env("XDG_STATE_HOME") || (Quickshell.env("HOME") + "/.local/state")) + "/omarchy-spaces/power"
     watchChanges: true
     printErrors: false
-    // Read before the restore below decides whether to run.
-    blockLoading: true
+    // Not with blockLoading: reading it as the shell starts crashed the shell.
+    // The restore below waits for the first read instead.
     onFileChanged: reload()
-    onLoaded: root.active = text().trim() !== "off"
-    onLoadFailed: root.active = true
+    onLoaded: root.powerRead(text().trim() !== "off")
+    onLoadFailed: root.powerRead(true)
+  }
+
+  property bool powerKnown: false
+  function powerRead(on) {
+    root.active = on
+    if (root.powerKnown) return
+    root.powerKnown = true
+    // The spaces from before the last restart open again by themselves,
+    // unless `[restore]` sets `auto = false`, and not while Spaces is off:
+    // turning it on restores them then. It does nothing when they already
+    // have, as when only the shell restarts; detached, so restarting the
+    // shell doesn't stop it halfway.
+    if (on) Quickshell.execDetached(["space", "restore", "--auto"])
   }
 
   readonly property bool searching: sidebarItem.searching
@@ -120,13 +133,6 @@ Item {
     watch: watchItem
     sidebar: sidebarItem
   }
-
-  // The spaces from before the last restart open again by themselves, unless
-  // `[restore]` sets `auto = false`. It does nothing when they already
-  // have, as when only the shell restarts; detached, so restarting the shell
-  // doesn't stop it halfway.
-  // Not while Spaces is off: turning it on restores them then.
-  Component.onCompleted: if (root.active) Quickshell.execDetached(["space", "restore", "--auto"])
 
   // When the plugin is removed this is all that runs, so it has uninstall.sh
   // undo the setup, from the copy the setup kept. That tells it apart from the
