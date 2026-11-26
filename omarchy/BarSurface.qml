@@ -28,7 +28,9 @@ Item {
     : theme
   readonly property color foreground: look === "none" ? clearText : text
   // The shade over it where the background shows beside the space's windows.
-  readonly property color recess: Qt.rgba(0, 0, 0, Spaces.recessAlpha(theme.r, theme.g, theme.b))
+  // None on a glassy one: the shade over the glass made it read as opaque.
+  readonly property color recess: look === "glassy" ? "transparent"
+    : Qt.rgba(0, 0, 0, Spaces.recessAlpha(theme.r, theme.g, theme.b))
 
   function hex(c) {
     function channel(v) { return ("0" + Math.round(v * 255).toString(16)).slice(-2) }

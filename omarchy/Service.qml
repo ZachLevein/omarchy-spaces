@@ -111,11 +111,15 @@ Item {
     })
   }
 
+  // The bar's background: opaque, glassy or none. The sidebar and the
+  // bar's part over it dress the same (Base.qml, TabsWidget.qml).
+  readonly property string look: Spaces.barLook(root.shell ? root.shell.barConfig : null)
+
   Base {
     sidebar: sidebarItem
     controller: controllerItem
     active: root.active
-    look: Spaces.barLook(root.shell ? root.shell.barConfig : null)
+    look: root.look
     bar: root.shell ? root.shell.bar : null
   }
 

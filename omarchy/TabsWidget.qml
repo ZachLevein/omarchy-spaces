@@ -189,7 +189,7 @@ BarWidget {
     var count = root.model.tabs.length
     if (count === 0 || root.centerStart === Infinity) return Infinity
     var room = root.centerStart - root.beforeCenter - root.origin.x - root.tabsX
-      - newTab.width - row.spacing * count
+      - newTab.width - powerOff.width - row.spacing * (count + 1)
     // The empty numbers aren't cut short: what they take is the tabs' less.
     var widths = []
     for (var i = 0; i < tabRepeater.count; i++) {
@@ -322,6 +322,8 @@ BarWidget {
     height: root.barSize
     readonly property color shade: {
       var bar = Commons.Color.bar.background
+      // Glassy, it stays as see-through as the rest of the bar.
+      if (root.service && root.service.look === "glassy") return "transparent"
       return Qt.rgba(0, 0, 0, Spaces.recessAlpha(bar.r, bar.g, bar.b))
     }
 
@@ -385,8 +387,6 @@ BarWidget {
       Behavior on textShown { NumberAnimation { duration: Style.duration(120) } }
       // Where the toggle is, and where the title starts, past the logo.
       readonly property real toggleX: header.inset + header.highlightWidth - header.cell
-      // The button that turns Spaces off, just before the toggle.
-      readonly property real powerX: header.toggleX - header.cell
       readonly property real afterLogo: header.inset + header.cell
       readonly property real titleX: header.afterLogo + header.sidebar.textGap
 
@@ -412,7 +412,7 @@ BarWidget {
 
       Item {
         x: header.titleX
-        width: Math.max(0, header.powerX - header.titleX)
+        width: Math.max(0, header.toggleX - header.titleX)
         height: parent.height
         clip: true
 
@@ -440,16 +440,6 @@ BarWidget {
         width: Math.max(0, header.toggleX + header.cell - header.afterLogo)
         height: parent.height
         clip: true
-
-        // Turns Spaces off (nf-fa-power_off): your spaces wait, out of
-        // sight, until it's on again.
-        HeaderButton {
-          x: header.powerX - header.afterLogo
-          width: header.cell
-          enabled: x >= 0
-          text: "\uf011"
-          onClicked: if (root.service) root.service.setPower(false)
-        }
 
         HeaderButton {
           x: header.toggleX - header.afterLogo
@@ -532,6 +522,14 @@ BarWidget {
     x: root.tabsX
     height: root.barSize
     spacing: Style.space(1)
+
+    // Turns Spaces off (nf-fa-power_off), always there before the tabs: your
+    // spaces wait, out of sight, until it's on again.
+    TabButton {
+      id: powerOff
+      text: "\uf011"
+      onClicked: if (root.service) root.service.setPower(false)
+    }
 
     Repeater {
       id: tabRepeater
