@@ -51,18 +51,21 @@ status() {
   if [[ $(cat "$power" 2>/dev/null) == off ]]; then echo off; else echo on; fi
 }
 
+# Written in place, not replaced: the service watches this file (Service.qml),
+# and a watch on a replaced file follows the old one.
 write_power() {
   mkdir -p "$state"
-  printf '%s\n' "$1" >"$power.tmp"
-  mv "$power.tmp" "$power"
+  printf '%s\n' "$1" >"$power"
 }
 
 bar_on() {
   local layout saved
   layout=$(jq -c "$NORMALIZE | .bar.layout.left" "$(source_file)")
+  # Where each was among the rest, the tabs left out, as `bar_off` puts them
+  # back among the rest.
   saved=$(jq -c --arg id "$id" "$DISPLACED"'
     {
-      displaced: [to_entries[] | select(.value | displaced($id)) | { index: .key, entry: .value }]
+      displaced: [map(select(idof != $id)) | to_entries[] | select(.value | displaced($id)) | { index: .key, entry: .value }]
     }' <<<"$layout")
   # Run twice, there's nothing left to take off: keep what the first run saved.
   if jq -e '.displaced | length > 0' <<<"$saved" >/dev/null; then

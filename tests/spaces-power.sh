@@ -56,5 +56,13 @@ echo '{"bar":{"layout":{"left":[{"id":"com.t4t5.spaces"},{"id":"omarchy.media"}]
 power bar-off
 expect "off after upstream's setup" '["omarchy.menu","omarchy.workspaces","com.t4t5.spaces","omarchy.media"]'
 
+# The tabs first when turned on, as the setup enables them.
+rm -f "$state/power-bar.json" "$state/bar"
+echo '{"bar":{"layout":{"left":[{"id":"com.t4t5.spaces"},{"id":"me.menu"},{"id":"me.workspaces"},{"id":"omarchy.indicators"}]}}}' >"$config"
+power bar-on
+expect "on with the tabs already first" '["com.t4t5.spaces","omarchy.indicators"]'
+power bar-off
+expect "off keeps the others' order" '["me.menu","me.workspaces","com.t4t5.spaces","omarchy.indicators"]'
+
 [[ $(power status) == on ]] && echo "ok: on until turned off" || { echo "FAIL: status"; failed=1; }
 exit $failed

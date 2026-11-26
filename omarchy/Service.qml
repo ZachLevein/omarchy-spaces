@@ -26,11 +26,21 @@ Item {
   // button that turns it on again (TabsWidget.qml).
   property bool active: true
   readonly property string powerScript: String(Qt.resolvedUrl("../bin/spaces-power")).replace(/^file:\/\//, "")
-  function setPower(on) { Quickshell.execDetached([root.powerScript, on ? "on" : "off"]) }
+  function setPower(on) {
+    if (powerProc.running) return
+    powerProc.command = [root.powerScript, on ? "on" : "off"]
+    powerProc.running = true
+  }
+  // Read again once it's done, in case the watch missed the write.
+  Process {
+    id: powerProc
+    onExited: powerFile.reload()
+  }
   function togglePower() { root.setPower(!root.active) }
   onActiveChanged: if (!root.active) sidebarItem.hide()
 
   FileView {
+    id: powerFile
     path: (Quickshell.env("XDG_STATE_HOME") || (Quickshell.env("HOME") + "/.local/state")) + "/omarchy-spaces/power"
     watchChanges: true
     printErrors: false

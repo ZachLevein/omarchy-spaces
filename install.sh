@@ -63,6 +63,8 @@ setup() {
   # gives the bar back its menu and workspaces.
   install -Dm755 uninstall.sh "$state/uninstall.sh"
   install -Dm755 bin/spaces-power "$state/spaces-power"
+  # There from the start, so the service's watch on it sees the first switch.
+  [[ -e $state/power ]] || echo on >"$state/power"
 
   # Before the rest, as it needs no network and the user's keys load it. One that's
   # theirs stays; one that leads nowhere is from an earlier install.
