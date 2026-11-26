@@ -39,6 +39,12 @@ Item {
   function togglePower() { root.setPower(!root.active) }
   onActiveChanged: if (!root.active) sidebarItem.hide()
 
+  Timer {
+    id: settleOff
+    interval: 2000
+    onTriggered: root.active = powerFile.loaded ? powerFile.text().trim() !== "off" : true
+  }
+
   FileView {
     id: powerFile
     path: (Quickshell.env("XDG_STATE_HOME") || (Quickshell.env("HOME") + "/.local/state")) + "/omarchy-spaces/power"
@@ -53,7 +59,11 @@ Item {
 
   property bool powerKnown: false
   function powerRead(on) {
-    root.active = on
+    // Off as the shell starts, it turns off a moment later, once the shell
+    // has settled: turning it off while the shell was still loading crashed
+    // the shell. Switched later, it's as safe as a click.
+    if (!root.powerKnown && !on) settleOff.start()
+    else if (!settleOff.running) root.active = on
     if (root.powerKnown) return
     root.powerKnown = true
     // The spaces from before the last restart open again by themselves,
