@@ -379,12 +379,14 @@ Item {
   // whole of it, which makes Hyprland move the windows. The shell makes the
   // bar first, so this reserves room below a top bar and the bar never moves.
   Variants {
-    model: root.active ? Quickshell.screens : []
+    model: Quickshell.screens
 
     PanelWindow {
       required property var modelData
       readonly property bool expanded: root.opened && !!root.screen && root.screen.name === modelData.name
       screen: modelData
+      // Hidden while Spaces is off, so it keeps no room (Service.qml).
+      visible: root.active
       anchors { left: true; top: true; bottom: true }
       implicitWidth: 1
       exclusionMode: ExclusionMode.Normal

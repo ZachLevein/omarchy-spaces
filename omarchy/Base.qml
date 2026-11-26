@@ -33,12 +33,15 @@ Scope {
   }
 
   Variants {
-    model: root.active ? Quickshell.screens : []
+    model: Quickshell.screens
 
     PanelWindow {
       id: base
       required property var modelData
       screen: modelData
+      // Hidden, not taken away, while Spaces is off: the shell crashed
+      // when the windows went as it started.
+      visible: root.active
 
       // The bar's thickness on this screen, where it runs along `edge`.
       function barOn(edge) {
