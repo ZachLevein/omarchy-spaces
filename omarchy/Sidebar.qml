@@ -35,6 +35,8 @@ Item {
   // (Controller.qml).
   property var watch: null
   property var controller: null
+  // Whether Spaces is on: off, it keeps no room on any screen (Service.qml).
+  property bool active: true
   readonly property var now: root.watch ? root.watch.now : Spaces.EMPTY
 
   // Whether the sidebar is expanded, and whether you are searching it, which
@@ -160,7 +162,7 @@ Item {
 
   // Expands it on `screen`, or the focused one.
   function show(screen) {
-    if (root.opened) return
+    if (root.opened || !root.active) return
     root.screen = screen || (root.controller ? root.controller.focusedScreen() : null)
     root.leading = root.windowsToMove()
     root.opened = true
@@ -377,7 +379,7 @@ Item {
   // whole of it, which makes Hyprland move the windows. The shell makes the
   // bar first, so this reserves room below a top bar and the bar never moves.
   Variants {
-    model: Quickshell.screens
+    model: root.active ? Quickshell.screens : []
 
     PanelWindow {
       required property var modelData

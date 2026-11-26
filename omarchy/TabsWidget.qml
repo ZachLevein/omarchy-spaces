@@ -71,8 +71,8 @@ BarWidget {
   // The space's corner rounds as Hyprland rounds windows.
   readonly property real cornerRadius: Style.cornerRadius
 
-  implicitWidth: root.vertical ? root.barSize : row.x + row.implicitWidth + root.padding
-  implicitHeight: root.vertical ? column.implicitHeight : root.barSize
+  implicitWidth: !root.active ? powerOn.width : root.vertical ? root.barSize : row.x + row.implicitWidth + root.padding
+  implicitHeight: !root.active ? root.barSize : root.vertical ? column.implicitHeight : root.barSize
 
   function run(args) {
     Quickshell.execDetached(args)
@@ -86,6 +86,10 @@ BarWidget {
   }
   readonly property var sidebar: root.service && root.service.sidebar ? root.service.sidebar : null
   readonly property var controller: root.service && root.service.controller ? root.service.controller : null
+  // Whether Spaces is on (bin/spaces-power). Off, the widget is only a
+  // button that turns it on again, beside the menu and workspaces it gave
+  // back to the bar.
+  readonly property bool active: !root.service || root.service.active !== false
 
   // Where this widget sits on its bar, which spans its screen.
   property point origin: Qt.point(0, 0)
@@ -139,7 +143,7 @@ BarWidget {
     return window && window.screen ? window.screen.name : ""
   }
   // Whether the sidebar parts this bar: the widget can follow its edge.
-  readonly property bool parts: !root.vertical && root.fixedEdge === "start" && !!root.sidebar
+  readonly property bool parts: root.active && !root.vertical && root.fixedEdge === "start" && !!root.sidebar
   // Where the windows begin on this screen, as they slide.
   readonly property real edge: {
     if (!root.parts) return 0
@@ -381,6 +385,8 @@ BarWidget {
       Behavior on textShown { NumberAnimation { duration: Style.duration(120) } }
       // Where the toggle is, and where the title starts, past the logo.
       readonly property real toggleX: header.inset + header.highlightWidth - header.cell
+      // The button that turns Spaces off, just before the toggle.
+      readonly property real powerX: header.toggleX - header.cell
       readonly property real afterLogo: header.inset + header.cell
       readonly property real titleX: header.afterLogo + header.sidebar.textGap
 
@@ -406,7 +412,7 @@ BarWidget {
 
       Item {
         x: header.titleX
-        width: Math.max(0, header.toggleX - header.titleX)
+        width: Math.max(0, header.powerX - header.titleX)
         height: parent.height
         clip: true
 
@@ -434,6 +440,16 @@ BarWidget {
         width: Math.max(0, header.toggleX + header.cell - header.afterLogo)
         height: parent.height
         clip: true
+
+        // Turns Spaces off (nf-fa-power_off): your spaces wait, out of
+        // sight, until it's on again.
+        HeaderButton {
+          x: header.powerX - header.afterLogo
+          width: header.cell
+          enabled: x >= 0
+          text: "\uf011"
+          onClicked: if (root.service) root.service.setPower(false)
+        }
 
         HeaderButton {
           x: header.toggleX - header.afterLogo
@@ -498,9 +514,21 @@ BarWidget {
     }
   }
 
+  // While Spaces is off, all there is of the widget: the sidebar's icon,
+  // faded, which turns it on again.
+  HeaderButton {
+    id: powerOn
+    visible: !root.active
+    width: root.vertical ? root.barSize : (root.sidebar ? root.sidebar.cell : root.barSize)
+    // The sidebar, docked on the left (nf-cod-layout_sidebar_left).
+    text: "\u{ebf3}"
+    restingOpacity: 0.4
+    onClicked: if (root.service) root.service.setPower(true)
+  }
+
   Row {
     id: row
-    visible: !root.vertical
+    visible: root.active && !root.vertical
     x: root.tabsX
     height: root.barSize
     spacing: Style.space(1)
@@ -557,7 +585,7 @@ BarWidget {
 
   Column {
     id: column
-    visible: root.vertical
+    visible: root.active && root.vertical
 
     Repeater {
       model: root.vertical ? root.cells : []

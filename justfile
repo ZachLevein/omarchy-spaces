@@ -18,8 +18,7 @@ setup:
     for i in $(seq 50); do omarchy-shell shell listPlugins | grep -q '"com.t4t5.spaces"' && break; sleep 0.1; done
     # First on the bar, the space's logo and tabs take the place of the menu and the workspaces.
     omarchy plugin enable com.t4t5.spaces --section left --index 0
-    omarchy plugin disable omarchy.menu
-    omarchy plugin disable omarchy.workspaces
+    {{justfile_directory()}}/bin/spaces-power bar-on
     ln -sfn {{justfile_directory()}}/hypr/omarchy-spaces.lua ~/.config/hypr/omarchy-spaces.lua
     grep -qs 'require("hypr.omarchy-spaces")' ~/.config/hypr/*.lua || echo 'if package.searchpath("hypr.omarchy-spaces", package.path) then require("hypr.omarchy-spaces").bind_tab_keys() end' >> ~/.config/hypr/bindings.lua
     # Hyprland doesn't notice the link by itself.
@@ -48,7 +47,9 @@ uninstall:
     fi
     # The rest as a removed plugin does it, with the bar `just setup` replaced.
     mkdir -p {{state}}
-    echo replace > {{state}}/bar
+    echo power > {{state}}/bar
+    install -m755 bin/spaces-power {{state}}/spaces-power
+    [[ ! -e {{state}}.dev/power-bar.json ]] || cp {{state}}.dev/power-bar.json {{state}}/
     ./uninstall.sh
     cargo uninstall omarchy-spaces
 

@@ -18,6 +18,8 @@ Scope {
 
   property var sidebar: null
   property var controller: null
+  // Whether Spaces is on: off, nothing is drawn (Service.qml).
+  property bool active: true
   // The bar's background look: opaque, glassy or none (Spaces.barLook).
   property string look: "opaque"
   // The shell's bar: its edge and its thickness on each screen.
@@ -31,7 +33,7 @@ Scope {
   }
 
   Variants {
-    model: Quickshell.screens
+    model: root.active ? Quickshell.screens : []
 
     PanelWindow {
       id: base

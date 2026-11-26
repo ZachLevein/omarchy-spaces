@@ -1,5 +1,6 @@
 import QtQuick
 import Quickshell
+import Quickshell.Io
 import "Spaces.mjs" as Spaces
 
 // The spaces sidebar, loaded with the shell and drawn under the windows
@@ -17,6 +18,27 @@ Item {
   // an update, while this is still the old one's QML.
   onManifestChanged: {
     if (!watchItem.loadedVersion && root.manifest) watchItem.loadedVersion = root.manifest.version || ""
+  }
+
+  // Whether Spaces is on: `bin/spaces-power` turns it off and on, writing
+  // `power` in its state folder, which this follows. While it's off there is
+  // no sidebar and no room kept for it, and the tabs on the bar shrink to a
+  // button that turns it on again (TabsWidget.qml).
+  property bool active: true
+  readonly property string powerScript: String(Qt.resolvedUrl("../bin/spaces-power")).replace(/^file:\/\//, "")
+  function setPower(on) { Quickshell.execDetached([root.powerScript, on ? "on" : "off"]) }
+  function togglePower() { root.setPower(!root.active) }
+  onActiveChanged: if (!root.active) sidebarItem.hide()
+
+  FileView {
+    path: (Quickshell.env("XDG_STATE_HOME") || (Quickshell.env("HOME") + "/.local/state")) + "/omarchy-spaces/power"
+    watchChanges: true
+    printErrors: false
+    // Read before the restore below decides whether to run.
+    blockLoading: true
+    onFileChanged: reload()
+    onLoaded: root.active = text().trim() !== "off"
+    onLoadFailed: root.active = true
   }
 
   readonly property bool searching: sidebarItem.searching
@@ -37,7 +59,11 @@ Item {
 
   function search() { sidebarItem.search() }
   function endSearch() { sidebarItem.endSearch() }
-  function toggleSidebar(screen) { sidebarItem.toggleSidebar(screen) }
+  // While Spaces is off, the key that shows the sidebar turns it on instead.
+  function toggleSidebar(screen) {
+    if (root.active) sidebarItem.toggleSidebar(screen)
+    else root.setPower(true)
+  }
   function renameSpace() { controllerItem.renameSpace() }
   function renameTab() { controllerItem.renameTab("") }
   function sendTab() { controllerItem.sendTab() }
@@ -55,6 +81,7 @@ Item {
   Base {
     sidebar: sidebarItem
     controller: controllerItem
+    active: root.active
     look: Spaces.barLook(root.shell ? root.shell.barConfig : null)
     bar: root.shell ? root.shell.bar : null
   }
@@ -88,7 +115,8 @@ Item {
   // `[restore]` sets `auto = false`. It does nothing when they already
   // have, as when only the shell restarts; detached, so restarting the shell
   // doesn't stop it halfway.
-  Component.onCompleted: Quickshell.execDetached(["space", "restore", "--auto"])
+  // Not while Spaces is off: turning it on restores them then.
+  Component.onCompleted: if (root.active) Quickshell.execDetached(["space", "restore", "--auto"])
 
   // When the plugin is removed this is all that runs, so it has uninstall.sh
   // undo the setup, from the copy the setup kept. That tells it apart from the
@@ -98,6 +126,7 @@ Item {
 
   Sidebar {
     id: sidebarItem
+    active: root.active
     watch: watchItem
     controller: controllerItem
     // As the tabs' widgets have it, or as the config does until they load,

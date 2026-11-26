@@ -1,0 +1,139 @@
+#!/bin/bash
+
+# Turns Spaces off and on again without removing the plugin.
+#
+#   spaces-power off      leave your spaces as they are, go to `home`, hide the
+#                         sidebar and give the bar back its menu and workspaces
+#   spaces-power on       put the space tabs back first on the bar and return to
+#                         the space you were in
+#   spaces-power toggle   whichever it isn't
+#   spaces-power status   prints on or off
+#
+#   spaces-power bar-on   only the bar's half of `on`: the setup runs it once
+#   spaces-power bar-off  only the bar's half of `off`: uninstall.sh runs it
+#
+# While it is off, the spaces' windows stay on their tabs, out of sight, and
+# come back with them. The plugin's service follows the `power` file (Service.qml):
+# no sidebar, no room kept for it, and the tabs on the bar shrink to a button
+# that turns it on again. In `home` the tab keys are Omarchy's own
+# (hypr/omarchy-spaces.lua), so every key does what it did before Spaces.
+#
+# The bar: turning it on takes the menu and workspaces widgets off the bar's
+# left section (any `*.menu` or `*.workspaces`, Omarchy's or your own clones),
+# remembering where each was, and puts the tabs first, where they draw the
+# sidebar's header. Turning it off puts them back where they were.
+
+set -euo pipefail
+
+id=com.t4t5.spaces
+state="${XDG_STATE_HOME:-$HOME/.local/state}/omarchy-spaces"
+power="$state/power"
+saved_bar="$state/power-bar.json"
+last_space="$state/power-last-space"
+# What the setup before this one recorded: Omarchy's two were replaced.
+replaced="$state/bar"
+
+# Bar edits go through Omarchy's own helper: it normalizes shell.json, writes
+# it whole and has the shell reload it.
+# shellcheck source=/dev/null
+source omarchy-shell-config
+
+die() {
+  echo "spaces-power: $*" >&2
+  exit 1
+}
+
+# jq: a bar entry is an id or an object with one.
+IDOF='def idof: if type == "object" then .id else . end;'
+DISPLACED="$IDOF"' def displaced($id): idof as $i | $i != $id and ($i | type == "string") and ($i | test("\\.(menu|workspaces)$"));'
+
+status() {
+  if [[ $(cat "$power" 2>/dev/null) == off ]]; then echo off; else echo on; fi
+}
+
+write_power() {
+  mkdir -p "$state"
+  printf '%s\n' "$1" >"$power.tmp"
+  mv "$power.tmp" "$power"
+}
+
+bar_on() {
+  local layout saved
+  layout=$(jq -c "$NORMALIZE | .bar.layout.left" "$(source_file)")
+  saved=$(jq -c --arg id "$id" "$DISPLACED"'
+    {
+      displaced: [to_entries[] | select(.value | displaced($id)) | { index: .key, entry: .value }]
+    }' <<<"$layout")
+  # Run twice, there's nothing left to take off: keep what the first run saved.
+  if jq -e '.displaced | length > 0' <<<"$saved" >/dev/null; then
+    mkdir -p "$state"
+    printf '%s\n' "$saved" >"$saved_bar.tmp"
+    mv "$saved_bar.tmp" "$saved_bar"
+  fi
+  commit "$NORMALIZE | $DISPLACED"'
+    .bar.layout.left as $left
+    | ([$left[] | select(idof == $id)] | first // { id: $id }) as $tabs
+    | .bar.layout.left = [$tabs] + [$left[] | select((idof == $id or displaced($id)) | not)]
+  ' --arg id "$id" >/dev/null
+}
+
+bar_off() {
+  local saved
+  if [[ -s $saved_bar ]]; then
+    saved=$(cat "$saved_bar")
+  elif [[ $(cat "$replaced" 2>/dev/null) == replace ]]; then
+    saved='{"displaced":[{"index":0,"entry":{"id":"omarchy.menu"}},{"index":1,"entry":{"id":"omarchy.workspaces"}}]}'
+  else
+    return 0
+  fi
+  commit "$NORMALIZE | $IDOF"'
+    def put($i; $e): .[:$i] + [$e] + .[$i:];
+    .bar.layout.left as $left
+    | ([$left[] | select(idof == $id)] | first) as $tabs
+    | ([$saved.displaced[].entry | idof]) as $back
+    | ([$left[] | select(idof as $i | $i != $id and ($back | index($i) | not))]) as $rest
+    # The button that turns it on again, just after what comes back.
+    | (if $tabs == null then []
+       else [{ index: (([$saved.displaced[].index] | max // -1) + 1), entry: $tabs }]
+       end) as $tabsAt
+    | .bar.layout.left = (($saved.displaced + $tabsAt) | sort_by(.index)
+        | reduce .[] as $p ($rest; put([$p.index, length] | min; $p.entry)))
+  ' --arg id "$id" --argjson saved "$saved" >/dev/null
+}
+
+# The space you are in, as Hyprland names its workspace (`s1:2`), if any.
+current_space() {
+  hyprctl activeworkspace -j 2>/dev/null | jq -r '.name // ""' | sed -n 's/^\(s[1-9][0-9]*\):[1-9][0-9]*$/\1/p'
+}
+
+off() {
+  [[ $(status) == on ]] || return 0
+  local here
+  here=$(current_space || true)
+  mkdir -p "$state"
+  if [[ -n $here ]]; then printf '%s\n' "$here" >"$last_space"; else rm -f "$last_space"; fi
+  write_power off
+  space go home >/dev/null 2>&1 || true
+  bar_off
+}
+
+on() {
+  [[ $(status) == off ]] || { bar_on; return 0; }
+  bar_on
+  write_power on
+  local back
+  back=$(cat "$last_space" 2>/dev/null || true)
+  if [[ -n $back ]]; then space go "$back" >/dev/null 2>&1 || true; fi
+  # Any spaces from before a restart while it was off.
+  space restore --auto >/dev/null 2>&1 || true
+}
+
+case ${1:-} in
+on) on ;;
+off) off ;;
+toggle) if [[ $(status) == on ]]; then off; else on; fi ;;
+status) status ;;
+bar-on) bar_on ;;
+bar-off) bar_off ;;
+*) die "usage: spaces-power on | off | toggle | status" ;;
+esac

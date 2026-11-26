@@ -42,11 +42,6 @@ state="${XDG_STATE_HOME:-$HOME/.local/state}/omarchy-spaces"
 marker="$state/installed"
 replaced="$state/bar"
 
-# Whether a plugin is on: for a widget, on the bar.
-enabled() {
-  omarchy-shell shell listPlugins | jq -e --arg id "$1" 'any(.[]; .id == $id and .enabled)' >/dev/null
-}
-
 # The shell shows notifications itself, so as it starts it may not be ready.
 notify() {
   local try
@@ -64,8 +59,10 @@ setup() {
   # A clone someone works in has `just setup`.
   [[ ! -L $plugin_dir ]] || return 0
 
-  # What undoes all this, kept where removing the plugin leaves it.
+  # What undoes all this, kept where removing the plugin leaves it, with what
+  # gives the bar back its menu and workspaces.
   install -Dm755 uninstall.sh "$state/uninstall.sh"
+  install -Dm755 bin/spaces-power "$state/spaces-power"
 
   # Before the rest, as it needs no network and the user's keys load it. One that's
   # theirs stays; one that leads nowhere is from an earlier install.
@@ -88,16 +85,17 @@ setup() {
 
   # Once: the bar is the user's after that, so putting the workspaces back keeps
   # them. Not if the tabs were put elsewhere on the bar: they only take the
-  # others' place in the left section.
+  # others' place in the left section. Any menu and workspaces widgets there,
+  # Omarchy's or clones of them, come off the bar (plugins stay enabled, as a
+  # menu plugin also draws the menu), and spaces-power puts them back.
   [[ ! -e $replaced ]] || return 0
   omarchy-shell shell listShellConfig |
     jq -e --arg id "$id" 'any(.bar.layout.left[]?; (.id? // .) == $id)' >/dev/null || return 0
-  enabled omarchy.menu || enabled omarchy.workspaces || return 0
-  omarchy plugin enable "$id" --section left --index 0
-  omarchy plugin disable omarchy.menu
-  omarchy plugin disable omarchy.workspaces
+  # Turned off before this setup ran: the bar stays as it is.
+  [[ $(bin/spaces-power status) == on ]] || return 0
+  bin/spaces-power bar-on
   mkdir -p "$state"
-  echo replace >"$replaced"
+  echo power >"$replaced"
 }
 
 case ${1:-} in

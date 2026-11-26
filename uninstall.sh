@@ -34,6 +34,12 @@ off() {
 }
 
 restore_bar() {
+  # Set up by this fork: spaces-power remembers what it took off the bar.
+  if [[ $(cat "$state/bar" 2>/dev/null) == power && -x $state/spaces-power ]]; then
+    "$state/spaces-power" bar-off || true
+    rm -f "$state/bar" "$state/power-bar.json"
+    return 0
+  fi
   [[ $(cat "$state/bar" 2>/dev/null) == replace ]] || return 0
   # Either may be back on it by now: `put` leaves one that is where it is.
   omarchy bar put omarchy.menu --section left --index 0
