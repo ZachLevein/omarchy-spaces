@@ -39,9 +39,6 @@ Scope {
       id: base
       required property var modelData
       screen: modelData
-      // Hidden, not taken away, while Spaces is off: the shell crashed
-      // when the windows went as it started.
-      visible: root.active
 
       // The bar's thickness on this screen, where it runs along `edge`.
       function barOn(edge) {
@@ -60,9 +57,11 @@ Scope {
       WlrLayershell.layer: WlrLayer.Bottom
       WlrLayershell.keyboardFocus: WlrKeyboardFocus.None
 
+      // Off, the window stays but draws nothing and takes no clicks: hiding
+      // or taking the windows away as the shell started crashed it.
       Rectangle {
         id: sidebarPart
-        visible: !!root.sidebar
+        visible: !!root.sidebar && root.active
         x: base.barOn("left")
         y: base.barOn("top")
         width: !root.sidebar ? 0 : base.expanding ? root.sidebar.revealed : root.sidebar.railWidth

@@ -385,12 +385,12 @@ Item {
       required property var modelData
       readonly property bool expanded: root.opened && !!root.screen && root.screen.name === modelData.name
       screen: modelData
-      // Hidden while Spaces is off, so it keeps no room (Service.qml).
-      visible: root.active
       anchors { left: true; top: true; bottom: true }
       implicitWidth: 1
       exclusionMode: ExclusionMode.Normal
-      exclusiveZone: expanded ? root.panelWidth : root.railWidth
+      // None while Spaces is off (Service.qml). The window stays: hiding it
+      // as the shell started crashed the shell.
+      exclusiveZone: !root.active ? 0 : expanded ? root.panelWidth : root.railWidth
       mask: Region {}
       color: "transparent"
       WlrLayershell.namespace: "omarchy-spaces-sidebar-room"
